@@ -9,10 +9,10 @@
   "author": "Jack Hsu",
   "license": "ISC",
   "devDependencies": {
-    "typescript": "4.8.2",
     "yargs-parser": "21.1.1"
   },
   "dependencies": {
     "semver": "7.3.8"
-  }
+  },
+  "packageManager": "yarn@3.4.1"
 }

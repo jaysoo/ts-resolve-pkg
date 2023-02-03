@@ -1,56 +1,39 @@
 const { execSync } = require("child_process");
-const { existsSync } = require("fs");
-const { join } = require("path");
+const { createRequire } = require('module');
 const semver = require("semver");
 const pkg = process.argv[2] ?? "typescript";
 const ver = process.argv[3];
 
-async function initGenerator() {
+
+async function ensurePackage(pkg) {
   const detectedVersion = getPackageVersion(pkg);
   console.log(">>> found", detectedVersion);
 
   if (!detectedVersion) {
-    console.log(">> installing...");
-    execSync(`npm i -D ${pkg}`, {
-      stdio: [0, 1, 2],
-    });
+    const cmd = `npm i -D ${pkg}`;
+    execSync(cmd, { stdio: [0, 1, 2] });
   } else if (ver && !semver.satisfies(detectedVersion, ver)) {
-    console.log(">> installing...");
-    execSync(`npm i -D ${pkg}`, {
-      stdio: [0, 1, 2],
-    });
+    const cmd = `npm i -D ${pkg}@${ver}`;
+    execSync(cmd, { stdio: [0, 1, 2] });
   }
-
-  require.resolve(pkg);
 }
 
-function detectPackageManager(dir = process.cwd()) {
-  return existsSync(join(dir, "yarn.lock"))
-    ? "yarn"
-    : existsSync(join(dir, "pnpm-lock.yaml"))
-      ? "pnpm"
-      : "npm";
+async function initGenerator() {
+  await ensurePackage(pkg);
+  console.log(require.resolve(pkg));
 }
 
 function getPackageVersion(pkg) {
   try {
-    const pm = detectPackageManager();
-    if (pm === "pnpm") {
-      const json = JSON.parse(execSync(`pnpm list --depth=0 --json ${pkg}`));
-      return json.dependencies[pkg]?.version ?? null;
-    } else if (pm === "yarn") {
-      const json = JSON.parse(
-        execSync(
-          `yarn list --pattern ${pkg} --depth=0 --json --non-interactive --no-progress`
-        )
-      );
-      return json?.type?.trees?.find((t) => t.name === pkg)?.version;
-    } else {
-      const json = JSON.parse(execSync(`npm list --depth=0 --json ${pkg}`));
-      return json.dependencies[pkg]?.version ?? null;
-    }
-  } catch {
+    // Create a sand-boxed `require` otherwise the module/file cache may be polluted,
+    // and importing packages such as `typescript` may fail even though they are installed.
+    const require = createRequire(__filename);
+    console.log(__filename);
+    return require(`${pkg}/package.json`).version;
+  } catch (e) {
+    console.error(e);
     return null;
   }
 }
+
 initGenerator();
